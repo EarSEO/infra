@@ -1,0 +1,103 @@
+require 'yaml'
+
+CONFIG = YAML.load_file(File.join(File.dirname(__FILE__), 'config.yml'))
+
+Vagrant.configure("2") do |config|
+  config.ssh.insert_key = false
+
+  CONFIG['controlplanes'].each do |controlplane|
+    config.vm.define controlplane['name'] do |cfg|
+      cfg.vm.box = controlplane['box']
+      cfg.vm.network "public_network"
+      cfg.vm.hostname = controlplane['hostname']
+      cfg.vm.disk :disk, name: "#{controlplane['name']}_primary", size: "#{controlplane['storage']}MB", primary: true
+
+      cfg.vm.provider "vmware_desktop" do |v|
+        v.vmx["displayName"] = controlplane['name']
+        v.vmx["memsize"] = controlplane['memory']
+        v.vmx["numvcpus"] = controlplane['cpu']
+        v.vmx["ethernet1.address"] = controlplane['mac']
+        v.vmx["ethernet1.addressType"] = "static"
+        v.linked_clone = false
+        v.gui = false
+      end
+
+      cfg.vm.provision "shell", inline: <<-SHELL
+        growpart /dev/sda 3
+        pvresize /dev/sda3
+        lvextend -l +100%FREE /dev/ubuntu-vg/ubuntu-lv
+        resize2fs /dev/mapper/ubuntu--vg-ubuntu--lv
+      SHELL
+
+      cfg.vm.provision "shell", inline: <<-SHELL
+        sed -i -e 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+        systemctl restart ssh
+      SHELL
+
+      cfg.vm.provision  "shell", inline: <<-SHELL
+        apt-get update
+        apt-get install chrony -y
+        cat > /etc/chrony/chrony.conf <<'EOF'
+pool time.bora.net iburst
+pool time.windows.com iburst
+pool time.google.com iburst
+driftfile /var/lib/chrony/drift
+makestep 1.0 3
+rtcsync
+EOF
+        timedatectl set-timezone Asia/Seoul
+        systemctl enable chrony
+        systemctl restart chrony
+        timedatectl set-ntp true
+      SHELL
+    end
+  end
+
+  CONFIG['workers'].each do |worker|
+    config.vm.define worker['name'] do |cfg|
+      cfg.vm.box = worker['box']
+      cfg.vm.network "public_network"
+      cfg.vm.hostname = worker['hostname']
+      cfg.vm.disk :disk, name: "#{worker['name']}_primary", size: "#{worker['storage']}MB", primary: true
+      
+      cfg.vm.provider "vmware_desktop" do |v|
+        v.vmx["displayName"] = worker['name']
+        v.vmx["memsize"] = worker['memory']
+        v.vmx["numvcpus"] = worker['cpu']
+        v.vmx["ethernet1.address"] = worker['mac']
+        v.vmx["ethernet1.addressType"] = "static"
+        v.linked_clone = false
+        v.gui = false
+      end
+
+      cfg.vm.provision "shell", inline: <<-SHELL
+        growpart /dev/sda 3
+        pvresize /dev/sda3
+        lvextend -l +100%FREE /dev/ubuntu-vg/ubuntu-lv
+        resize2fs /dev/mapper/ubuntu--vg-ubuntu--lv
+      SHELL
+
+      cfg.vm.provision "shell", inline: <<-SHELL
+        sed -i -e 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+        systemctl restart ssh
+      SHELL
+
+      cfg.vm.provision  "shell", inline: <<-SHELL
+        apt-get update
+        apt-get install chrony -y
+        cat > /etc/chrony/chrony.conf <<'EOF'
+pool time.bora.net iburst
+pool time.windows.com iburst
+pool time.google.com iburst
+driftfile /var/lib/chrony/drift
+makestep 1.0 3
+rtcsync
+EOF
+        timedatectl set-timezone Asia/Seoul
+        systemctl enable chrony
+        systemctl restart chrony
+        timedatectl set-ntp true
+      SHELL
+    end
+  end
+end
