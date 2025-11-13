@@ -1,0 +1,6 @@
+kube_version: "1.31.2"
+container_manager: containerd
+
+kube_network_plugin: calico
+
+etcd_deployment_type: host
