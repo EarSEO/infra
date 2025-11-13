@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.name }}-config
+  labels:
+    app: {{ .Values.name }}
+data:
+  application-config.yaml: |
+{{ .Values.config | nindent 4 }}
+---
