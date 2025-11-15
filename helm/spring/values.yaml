@@ -1,0 +1,62 @@
+# 서비스명
+name: earseo-spring
+
+# Spring 프로파일
+profile: dev
+
+# Image 메타데이터
+image:
+  repository: ghcr.io/earseo/demo
+  tag: 0.0.1
+  pullPolicy: IfNotPresent
+
+# Replica 개수 (오토스케일링 쓰지 않을때 사용)
+replicaCount: 2
+
+# 파드 리소스 제한
+resources:
+  enabled: true
+  requests:
+    memory: "512Mi"
+    cpu: "250m"
+  limits:
+    memory: "1Gi"
+    cpu: "500m"
+
+# Service
+service:
+  type: ClusterIP
+  port: 8080
+
+# Autoscaling
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  cpu:
+    targetAverageUtilization: 70
+  memory:
+    targetAverageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      percent: 100
+      periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      percent: 50
+      periodSeconds: 60
+
+# Monitor
+monitor:
+  enabled: false
+  service:
+    interval: 10s
+
+# Configmap
+config: |
+  server:
+    port: 8080
+
+secret: |
+  secret: i-am-secret
