@@ -1,0 +1,13 @@
+# Helm
+helm_enabled: true
+
+# Metric Server
+metrics_server_enabled: true
+
+# Nginx ingress controller
+ingress_nginx_enabled: true
+
+# Argocd
+argocd_enabled: true
+argocd_namespace: argocd
+argocd_admin_password: "default_password" #TODO 실제 사용시에는 바꿔야함

@@ -1,0 +1,46 @@
+all:
+  hosts:
+    earseo-controlplane-1:
+      ansible_host: 192.168.45.101
+      ip: 192.168.45.101
+      access_ip: 192.168.45.101
+      ansible_ssh_private_key_file: ~/.ssh/earseo/earseo_id_rsa
+    earseo-worker-1:
+      ansible_host: 192.168.45.201
+      ip: 192.168.45.201
+      access_ip: 192.168.45.201
+      ansible_ssh_private_key_file: ~/.ssh/earseo/earseo_id_rsa
+    earseo-worker-2:
+      ansible_host: 192.168.45.202
+      ip: 192.168.45.202
+      access_ip: 192.168.45.202
+      ansible_ssh_private_key_file: ~/.ssh/earseo/earseo_id_rsa
+    earseo-worker-3:
+      ansible_host: 192.168.45.203
+      ip: 192.168.45.203
+      access_ip: 192.168.45.203
+      ansible_ssh_private_key_file: ~/.ssh/earseo/earseo_id_rsa
+  
+  children:
+    kube_control_plane:
+      hosts:
+        earseo-controlplane-1:
+    
+    kube_node:
+      hosts:
+        earseo-controlplane-1:
+        earseo-worker-1:
+        earseo-worker-2:
+        earseo-worker-3:
+    
+    etcd:
+      hosts:
+        earseo-controlplane-1:
+    
+    k8s_cluster:
+      children:
+        kube_control_plane:
+        kube_node:
+
+    calico_rr:
+      hosts: {}

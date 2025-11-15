@@ -1,0 +1,30 @@
+controlplanes:
+  - name: earseo-controlplane-1
+    box: bento/ubuntu-24.04
+    hostname: earseo-controlplane-1
+    memory: 8192
+    cpu: 4
+    mac: 00:50:56:12:01:01
+    storage: 102400
+workers:
+  - name: earseo-worker-1
+    box: bento/ubuntu-24.04
+    hostname: earseo-worker-1
+    memory: 6144
+    cpu: 6
+    mac: 00:50:56:12:02:01
+    storage: 102400
+  - name: earseo-worker-2
+    box: bento/ubuntu-24.04
+    hostname: earseo-worker-2
+    memory: 6144
+    cpu: 6
+    mac: 00:50:56:12:02:02
+    storage: 102400
+  - name: earseo-worker-3
+    box: bento/ubuntu-24.04
+    hostname: earseo-worker-3
+    memory: 8192
+    cpu: 4
+    mac: 00:50:56:12:02:03
+    storage: 102400
