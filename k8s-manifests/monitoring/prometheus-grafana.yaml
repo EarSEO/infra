@@ -1,0 +1,89 @@
+prometheus:
+  service:
+    enabled: true
+    nodePort: 30090
+    type: NodePort
+  prometheusSpec:
+    replicas: 1
+    retention: 7d
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 100m
+      limits:
+        memory: 2Gi
+        cpu: 1000m
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes:
+            - "ReadWriteOnce"
+          resources:
+            requests:
+              storage: 20Gi
+
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorNamespaceSelector: {}
+    serviceMonitorSelector: {}
+    podMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelector: {}
+
+grafana:
+  enabled: true
+  defaultDashboardsTimezone: Asia/Seoul
+  service:
+    type: NodePort
+    nodePort: 30001
+
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+  persistence:
+    enabled: true
+    type: pvc
+    storageClassName: local-path
+    accessModes:
+      - ReadWriteOnce
+    size: 10Gi
+
+  # Loki, Tempo 데이터소스 설정
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      url: http://loki.monitoring.svc.cluster.local:3100
+      jsonData:
+        maxLines: 1000
+        httpHeaderName1: "X-Scope-OrgID"
+      secureJsonData:
+        httpHeaderValue1: "earseo-tenant"
+
+    - name: Tempo
+      type: tempo
+      url: http://tempo.monitoring.svc.cluster.local:3200
+      jsonData:
+        tracesToLogs:
+          datasourceUid: "loki"
+
+kubeControllerManager:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+prometheusOperator:
+  admissionWebhooks:
+    enabled: false
+    patch:
+      enabled: false
+  tls:
+    enabled: false

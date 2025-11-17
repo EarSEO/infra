@@ -1,0 +1,6 @@
+name: backend-story
+image:
+  repository: ghcr.io/earseo/backend-story
+replicaCount: 1
+service:
+  type: NodePort

@@ -1,0 +1,6 @@
+name: backend-sight
+image:
+  repository: ghcr.io/earseo/backend-sight
+replicaCount: 1
+service:
+  type: NodePort

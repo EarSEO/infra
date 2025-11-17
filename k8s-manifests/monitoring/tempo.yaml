@@ -1,0 +1,17 @@
+persistence:
+  enabled: true
+  storageClassName: local-path
+  accessModes:
+    - ReadWriteOnce
+  size: 20Gi
+
+serviceMonitor:
+  enabled: true
+
+resources:
+  requests:
+    memory: 128Mi
+    cpu: 100m
+#  limits:
+#    memory: 512Mi
+#    cpu: 300m

@@ -1,0 +1,48 @@
+image:
+  repository: confluentinc/cp-kafka # kafka 이미지
+  tag: 8.1.0
+
+listeners:
+  client:
+    containerPort: 9092
+    protocol: SASL_PLAINTEXT
+    name: CLIENT
+  controller:
+    containerPort: 9093
+    protocol: SASL_PLAINTEXT
+    name: CONTROLLER
+
+controller:
+  replicaCount: 3
+  persistentVolumeClaimRetentionPolicy:
+    enable: true
+    whenScaled: Retain
+    whenDeleted: Delete
+  persistence:
+    enabled: true
+    storageClass: local-path
+    accessModes:
+      - ReadWriteOnce
+    size: 10Gi
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+service:
+  type: ClusterIP
+  ports:
+    client: 9092
+    controller: 9093
+
+config:
+  log.retention.hours: 72
+  num.partitions: 3
+  default.replication.factor: 3
+
+metrics:
+  serviceMonitor:
+    enabled: true

@@ -1,0 +1,54 @@
+deploymentMode: SingleBinary
+
+loki:
+  # https://grafana.com/docs/loki/latest/configure/examples/configuration-examples/ 참고
+  commonConfig:
+    ring:
+      instance_addr: 127.0.0.1
+      kvstore:
+        store: inmemory
+    replication_factor: 1
+    path_prefix: /tmp/loki
+  storage:
+    type: 'filesystem'
+  schemaConfig:
+    configs:
+      - from: 2020-05-15
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: index_
+          period: 24h
+
+singleBinary:
+  replicas: 0
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 300m
+  persistence:
+    enabled: true
+    storageClass: local-path
+    size: 20Gi
+    accessModes:
+      - ReadWriteOnce
+chunksCache:
+  allocatedMemory: 512
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
+gateway:
+  enabled: false
+minio:
+  enabled: false
+
+monitoring:
+  serviceMonitor:
+    enabled: true

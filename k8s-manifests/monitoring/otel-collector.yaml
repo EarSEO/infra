@@ -1,0 +1,91 @@
+mode: daemonset
+
+image:
+  repository: otel/opentelemetry-collector-contrib
+  tag: 0.134.1
+
+clusterRole:
+  create: true
+  rules:
+    - apiGroups:
+        - ""
+      resources:
+        - pods
+        - namespaces
+        - nodes
+        - nodes/proxy
+        - services
+        - endpoints
+      verbs:
+        - get
+        - watch
+        - list
+    - apiGroups:
+        - extensions
+      resources:
+        - ingresses
+      verbs:
+        - get
+        - list
+        - watch
+    - nonResourceURLs:
+        - /metrics
+      verbs:
+        - get
+
+resources:
+  requests:
+    memory: 128Mi
+    cpu: 100m
+  limits:
+    memory: 512Mi
+    cpu: 300m
+
+config:
+  receivers:
+    jaeger: null
+    prometheus: null
+    zipkin: null
+  processors: # {}
+    batch: {}
+#      send_batch_size: 100
+#      timeout: 50ms
+#      send_batch_max_size: 500
+
+  exporters:
+    otlp/tempo:
+      endpoint: http://tempo.monitoring.svc.cluster.local:4317
+      tls:
+        insecure: true
+    otlphttp/loki:
+      endpoint: http://loki.monitoring.svc.cluster.local:3100/otlp
+      tls:
+        insecure: true
+
+  service:
+    pipelines:
+      traces:
+        receivers:
+          - otlp
+        processors:
+          - batch
+        exporters:
+          - otlp/tempo
+      logs:
+        receivers:
+          - otlp
+        processors:
+          - batch
+        exporters:
+          - otlphttp/loki
+      metrics: null
+
+ports:
+  jaeger-compact:
+    enabled: false
+  jaeger-thrift:
+    enabled: false
+  jaeger-grpc:
+    enabled: false
+  zipkin:
+    enabled: false

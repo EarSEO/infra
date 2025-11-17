@@ -1,0 +1,11 @@
+primary:
+  replicaCount: 1
+  containerPorts:
+    valkey: 6379
+  persistence:
+    enabled: true
+    storageClass: local-path
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true

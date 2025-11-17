@@ -1,0 +1,185 @@
+# 리소스 정의 참조 https://strimzi.io/docs/operators/0.48.0/configuring.html
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-earseo-metrics
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+data:
+  kafka-metrics-config.yml: |
+    lowercaseOutputName: true
+    rules:
+      - pattern: ".*"
+---
+# Kafka 클러스터 노드 풀 - KRaft 모드, 3 레플리카
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: kafka-kraft
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  labels:
+    strimzi.io/cluster: kafka-earseo-cluster
+spec:
+  replicas: 3
+  roles:
+    - controller
+    - broker
+  storage:
+    type: persistent-claim
+    size: 10Gi
+    class: local-path
+    deleteClaim: false
+---
+# Kafka 클러스터
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: kafka-earseo-cluster
+  namespace: kafka
+  annotations:
+    strimzi.io/node-pools: enabled
+    strimzi.io/kraft: enabled
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  kafka:
+    version: "4.1.0"
+    metadataVersion: "4.1"
+    authorization:
+      type: simple
+    config:
+      auto.create.topics.enable: false
+      offsets.topic.replication.factor: 3
+      transaction.state.log.replication.factor: 3
+      transaction.state.log.min.isr: 2
+      default.replication.factor: 3
+      min.insync.replicas: 2
+      log.retention.hours: 72
+      num.partitions: 3
+    listeners:
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+      - name: tls
+        port: 9093
+        type: internal
+        tls: true
+        authentication:
+          type: scram-sha-512
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 250m
+      limits:
+        memory: 1Gi
+        cpu: 1000m
+    metricsConfig:
+      type: jmxPrometheusExporter
+      valueFrom:
+        configMapKeyRef:
+          name: kafka-earseo-metrics
+          key: kafka-metrics-config.yml
+    logging:
+      type: inline
+      loggers:
+        rootLogger.level: INFO
+        # Kafka 브로커 로그
+        logger.kafka.level: INFO
+        # 컨트롤러 로그 (리더 선출)
+        logger.controller.level: INFO
+
+  entityOperator:
+    topicOperator:
+      logging:
+        type: inline
+        loggers:
+          rootLogger.level: INFO
+    userOperator:
+      logging:
+        type: inline
+        loggers:
+          rootLogger.level: INFO
+---
+# Kafka Topic 생성
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: test-topic
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    strimzi.io/cluster: kafka-earseo-cluster
+spec:
+  partitions: 3
+  replicas: 3
+  config:
+    retention.ms: 259200000  # 72시간
+    segment.bytes: 1073741824 # 1Gi
+
+---
+# Kafka User 생성 (SASL 인증)
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: kafka-admin
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    strimzi.io/cluster: kafka-earseo-cluster
+spec:
+  authentication:
+    type: scram-sha-512
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: "*"
+          patternType: literal
+        operations:
+          - Read
+          - Write
+          - Create
+          - Delete
+          - Describe
+          - DescribeConfigs
+      - resource:
+          type: group
+          name: "*"
+          patternType: literal
+        operations:
+          - All
+      - resource:
+          type: cluster
+        operations:
+          - All
+---
+# ServiceMonitor
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kafka-earseo-cluster-metrics
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      strimzi.io/cluster: kafka-earseo-cluster
+      strimzi.io/kind: Kafka
+  namespaceSelector:
+    matchNames:
+      - kafka
+  endpoints:
+    - port: tcp-prometheus
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
