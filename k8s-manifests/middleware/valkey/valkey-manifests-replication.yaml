@@ -1,0 +1,398 @@
+# 발키 컨테이너 이미지 래퍼런스 https://hub.docker.com/r/valkey/valkey
+# 센티넬 HA 구성 래퍼런스 https://valkey.io/topics/sentinel/
+---
+# Valkey용 ConfigMap - Standalone + Replica + Sentinel 설정
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: valkey-config
+  namespace: valkey
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+data:
+  valkey.conf: |    
+    ### AOF
+    # AOF 활성화
+    appendonly yes
+    # AOF 파일 이름 지정
+    appendfilename "appendonly.aof"
+    # AOF 갱신 주기 (1초)
+    appendfsync everysec
+    # AOF 파일 경로 설정
+    dir /data
+    # AOF 파일이 100% 커지면 Rewrite
+    auto-aof-rewrite-percentage 100
+    # AOF 파일이 최소 64MB 일 때만 Rewrite
+    auto-aof-rewrite-min-size 64mb
+    
+    ### RDB
+    # 15분동안 1개 변경 시 저장
+    save 900 1
+    # 5분동안 10개 변경 시 저장
+    save 300 10
+    # 1분동안 10000개 변경 시 저장
+    save 60 10000
+    # RDB 압축 설정
+    rdbcompression yes
+    # RDB 체크섬 설정
+    rdbchecksum yes
+
+    ### 네트워크
+    # 외부 접근 허용
+    protected-mode no
+    # 모든 인터페이스에서 수신
+    bind 0.0.0.0
+    
+    ### 인증
+    # 클라이언트 접속 비밀번호
+    requirepass ${VALKEY_PASSWORD}
+    # Master 접속 비밀번호 (Replica에서 Master)
+    masterauth ${VALKEY_PASSWORD}
+    
+    ### 복제 설정
+    # 최소 1개 Replica 연결 필요
+    min-replicas-to-write 1
+    # Replica 지연 최대 10초 허용
+    min-replicas-max-lag 10
+    # Replication에서 디스크 기반 RDB 사용
+    repl-diskless-sync no
+    
+    ### 메모리 관리
+    # 최대 메모리 (limit 2Gi의 60%)
+    maxmemory 1228mb
+    # 메모리 초과 시 LRU 방식으로 제거
+    maxmemory-policy allkeys-lru
+
+  sentinel.conf: |
+    # Sentinel 설정 파일 저장 경로
+    dir /data
+
+    ### 네트워크
+    # Sentinel 서비스 포트
+    port 26379
+    # 외부 접근 허용
+    protected-mode no
+    # 모든 인터페이스에서 수신
+    bind 0.0.0.0
+    
+    ### Master 인증
+    # Master 접속 시 사용할 비밀번호
+    sentinel auth-pass valkey-master ${VALKEY_PASSWORD}
+    
+    
+    ### 장애 감지 및 Failover 설정
+    # Master 무응답 5초 후 장애로 판단
+    sentinel down-after-milliseconds valkey-master 5000
+    # Failover 완료 제한 시간 (10초)
+    sentinel failover-timeout valkey-master 10000
+    # Failover 시 1개 Replica씩 순차 동기화
+    sentinel parallel-syncs valkey-master 1
+---
+# Valkey용 Headless Service - StatefulSet Pod 간 DNS
+apiVersion: v1
+kind: Service
+metadata:
+  name: valkey-headless
+  namespace: valkey
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  clusterIP: None
+  selector:
+    app: valkey
+  ports:
+    - port: 6379
+      targetPort: 6379
+      name: client
+    - port: 26379
+      targetPort: 26379
+      name: sentinel
+  publishNotReadyAddresses: true
+
+---
+# Valkey Replica Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: valkey-replica
+  namespace: valkey
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  type: ClusterIP
+  selector:
+    app: valkey
+  ports:
+    - port: 6379
+      targetPort: 6379
+      name: client
+
+---
+# Valkey Sentinel Service - 백엔드가 Master 조회용
+apiVersion: v1
+kind: Service
+metadata:
+  name: valkey-sentinel
+  namespace: valkey
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  type: ClusterIP
+  selector:
+    app: valkey
+  ports:
+    - port: 26379
+      targetPort: 26379
+      name: sentinel
+
+---
+# Valkey StatefulSet - Valkey + Sentinel
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: valkey
+  namespace: valkey
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  serviceName: valkey-headless
+  replicas: 3
+  selector:
+    matchLabels:
+      app: valkey
+  template:
+    metadata:
+      labels:
+        app: valkey
+    spec:
+      # Pod Anti-affinity - 서로 다른 노드에 배치
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: valkey
+              topologyKey: kubernetes.io/hostname
+      containers:
+        # Valkey 컨테이너
+        - name: valkey
+          image: valkey/valkey:9.0.0
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              echo "=== Valkey Node Setup ==="
+        
+              ### 1. 기본 설정 파일 준비
+              # ConfigMap의 valkey.conf를 임시 디렉토리로 복사
+              cp /etc/valkey/valkey.conf /tmp/valkey.conf
+              # 환경변수 ${VALKEY_PASSWORD}를 실제 비밀번호로 치환
+              sed -i "s/\${VALKEY_PASSWORD}/$VALKEY_PASSWORD/g" /tmp/valkey.conf
+        
+              ### 2. Sentinel에게 현재 Master 조회
+              echo "Querying Sentinel for current master..."
+              # Sentinel에게 "valkey-master" 그룹의 현재 Master IP 조회 (초기 부팅이나 실패 시 빈 문자열 반환)
+              MASTER_INFO=$(valkey-cli -h valkey-sentinel.valkey.svc.cluster.local -p 26379 \
+                SENTINEL get-master-addr-by-name valkey-master 2>/dev/null || echo "")
+        
+              if [ -n "$MASTER_INFO" ]; then
+                ### 2-1. Sentinel이 Master 정보를 제공한 경우 (ip, port, host(ip) 정보 추출)
+                MASTER_IP=$(echo "$MASTER_INFO" | awk 'NR==1 {print $1}')
+                MASTER_PORT=$(echo "$MASTER_INFO" | awk 'NR==2 {print $1}')
+                MASTER_HOST="$MASTER_IP"
+                echo "Sentinel reports master at: $MASTER_IP:$MASTER_PORT"
+              else
+                ### 2-2. Sentinel이 없거나 초기 상태 (Bootstrap 모드)
+                # 첫 배포 시 valkey-0을 초기 Master로 지정 (host는 FQDN)
+                echo "Sentinel not available. Bootstrap mode: valkey-0 is master."
+                MASTER_HOST="valkey-0.valkey-headless.valkey.svc.cluster.local"
+              fi
+        
+              ### 3. 해당 파드 역할 결정
+              # Pod 이름
+              MY_POD_NAME="$HOSTNAME"
+              # FQDN (Fully Qualified Domain Name)
+              MY_FQDN="$HOSTNAME.valkey-headless.valkey.svc.cluster.local"
+              # IP 주소 확인
+              MY_IP=$(hostname -i)
+        
+              ### 3-1. Bootstrap 모드 체크
+              # valkey-0이고 Sentinel 정보가 없으면 → 초기 Master
+              if [ "$MY_POD_NAME" = "valkey-0" ] && [ -z "$MASTER_INFO" ]; then
+                echo "I am valkey-0 in bootstrap mode. I am the MASTER."
+                ROLE="master"
+              
+              ### 3-2. Sentinel이 나를 Master로 지정한 경우
+              # Master IP/FQDN과 내 IP/FQDN이 일치하면 → Master
+              elif [ "$MASTER_HOST" = "$MY_IP" ] || [ "$MASTER_HOST" = "$MY_FQDN" ]; then
+                echo "Sentinel says I ($MY_IP) am the MASTER."
+                ROLE="master"
+              
+              ### 3-3. 그 외 모든 경우 → Replica
+              else
+                echo "I am a REPLICA of $MASTER_HOST"
+                ROLE="replica"
+              
+                ### Master 준비 대기
+                # Master가 완전히 시작될 때까지 대기
+                echo "Waiting for master to be ready..."
+                until valkey-cli -h "$MASTER_HOST" -a "$VALKEY_PASSWORD" ping 2>/dev/null | grep -q PONG; do
+                  echo "Master not ready, retrying..."
+                  sleep 2
+                done
+                echo "Master is ready!"
+                
+                ### Replica 설정 추가
+                # Master를 따라가도록 replicaof 지시문 추가
+                echo "replicaof $MASTER_HOST 6379" >> /tmp/valkey.conf
+              fi
+        
+              ### 4. Valkey 서버 시작
+              echo "Starting Valkey as $ROLE..."
+              # exec: 현재 프로세스를 valkey-server로 교체 (PID 유지)
+              exec valkey-server /tmp/valkey.conf
+          ports:
+            - containerPort: 6379
+              name: client
+
+          volumeMounts:
+            - name: valkey-data
+              mountPath: /data
+            - name: config
+              mountPath: /etc/valkey
+
+          resources:
+            requests:
+              memory: "1.5Gi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "500m"
+
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - valkey-cli -a "$VALKEY_PASSWORD" ping | grep -q PONG
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - valkey-cli -a "$VALKEY_PASSWORD" ping | grep -q PONG
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          env:
+            - name: VALKEY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: valkey-secret
+                  key: VALKEY_PASSWORD
+        # Sentinel 사이드카 컨테이너
+        - name: sentinel
+          image: valkey/valkey:9.0.0
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              CONF_PATH="/data/sentinel.conf"
+      
+              ### 1. Sentinel 설정 파일 초기화 또는 기존 설정 사용
+              if [ ! -f "$CONF_PATH" ]; then
+                ### 1-1. 최초 실행 시 => 설정 파일이 없음
+                echo "Initializing new Sentinel config..."
+                # ConfigMap의 sentinel.conf를 PVC로 복사
+                cp /etc/valkey/sentinel.conf "$CONF_PATH"
+                # 환경변수를 실제 비밀번호로 치환
+                sed -i "s/\${VALKEY_PASSWORD}/$VALKEY_PASSWORD/g" "$CONF_PATH"
+                
+                ### valkey-0의 IP를 초기 Master로 등록
+                echo "Resolving valkey-0 IP..."
+                # valkey-0의 DNS가 정의될 때까지 대기
+                until MASTER_IP=$(getent hosts valkey-0.valkey-headless.valkey.svc.cluster.local | awk '{print $1}'); do
+                  echo "Waiting for valkey-0 DNS..."
+                  sleep 2
+                done
+                echo "Initial Master IP: $MASTER_IP"
+                
+                ### Sentinel monitor 설정 추가
+                # Quorum 2: 3개 Sentinel 중 2개가 동의해야 Failover 진행
+                echo "sentinel monitor valkey-master $MASTER_IP 6379 2" >> "$CONF_PATH"
+                echo "Sentinel config created."
+              else
+                ### 1-2. 재시작 시 => 기존 설정 파일 존재
+                echo "Using existing Sentinel config."
+              fi
+      
+              ### 2. Sentinel 서버 시작
+              echo "Starting Sentinel..."
+              # exec: 현재 프로세스를 valkey-sentinel로 교체 (PID 유지)
+              exec valkey-sentinel "$CONF_PATH"
+          ports:
+            - containerPort: 26379
+              name: sentinel
+
+          volumeMounts:
+            - name: valkey-data
+              mountPath: /data
+            - name: config
+              mountPath: /etc/valkey
+
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - valkey-cli -p 26379 ping | grep -q PONG
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - valkey-cli -p 26379 ping | grep -q PONG
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+          env:
+            - name: VALKEY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: valkey-secret
+                  key: VALKEY_PASSWORD
+
+      volumes:
+        - name: config
+          configMap:
+            name: valkey-config
+
+  volumeClaimTemplates:
+    - metadata:
+        name: valkey-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 8Gi
