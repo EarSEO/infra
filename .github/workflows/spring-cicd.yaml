@@ -1,0 +1,124 @@
+name: Spring Boot Integration & Delivery
+
+on:
+  workflow_call:
+    secrets:
+      TOKEN_GITHUB:
+        required: true
+
+env:
+  REGISTRY: ghcr.io
+  ORGANIZATION: earseo
+
+jobs:
+  integration:
+    name: Integration (Test & Build)
+    runs-on: ubuntu-latest
+    services:
+      postgis:
+        image: postgis/postgis:18-3.6-alpine
+        env:
+          POSTGRES_USER: earseo
+          POSTGRES_PASSWORD: 1234
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+      valkey:
+        image: valkey/valkey:alpine3.22
+        ports:
+          - 6379:6379
+      kafka:
+        image: bitnamilegacy/kafka:4.0.0-debian-12-r10
+        env:
+          KAFKA_CFG_NODE_ID: 0
+          KAFKA_CFG_PROCESS_ROLES: controller,broker
+          KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+          KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+          KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+          KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
+          KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+          KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: true
+        ports:
+          - 9092:9092
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.TOKEN_GITHUB }}
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'corretto'
+          java-version: 21
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+        shell: bash
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Build with Gradle
+        run: ./gradlew clean build
+        shell: bash
+
+      - name: Upload JAR artifact
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: spring-app-jar
+          path: build/libs/*.jar
+          retention-days: 1
+
+      - name: Upload Dockerfile artifact
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: dockerfile
+          path: docker/*
+          retention-days: 1
+
+  delivery:
+    name: Delivery (Docker Build & Delivery)
+    needs: integration
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download JAR artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: spring-app-jar
+          path: ./build/libs/
+
+      - name: Download Dockerfile artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dockerfile
+          path: ./docker/
+
+      - name: Set Docker Image Tag
+        run: |
+          echo "DOCKER_IMAGE=${{ env.REGISTRY }}/${{ env.ORGANIZATION }}/$(basename ${{ github.repository }}):${GITHUB_REF#refs/tags/}" >> ${GITHUB_ENV}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.TOKEN_GITHUB }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & Push Docker Image (multi-platform)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.DOCKER_IMAGE }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
