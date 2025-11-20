@@ -33,14 +33,25 @@ spec:
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: {{ .Values.profile }}
+            {{- if .Values.kafkaUser.enabled }}
+            - name: SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG
+              valueFrom:
+                secretKeyRef:
+                  {{- if .Values.kafkaUser.secretName }}
+                  name: {{ .Values.kafkaUser.secretName }}
+                  {{- else }}
+                  name: {{ .Values.name }}-kafka-user
+                  {{- end }}
+                  key: sasl.jaas.config
+            {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ .Values.name }}-config
           ports:
             - containerPort: 8080
               protocol: TCP
               name: http
           volumeMounts:
-            - mountPath: /etc/config
-              name: configmap
-              readOnly: true
             - mountPath: /etc/secret
               name: secret
               readOnly: true
@@ -61,12 +72,6 @@ spec:
             timeoutSeconds: 3
             failureThreshold: 3
       volumes:
-        - name: configmap
-          configMap:
-            name: {{ .Values.name }}-config
-            items:
-              - key: application-config.yaml
-                path: application-config.yaml
         - name: secret
           secret:
             secretName: {{ .Values.name }}-secret

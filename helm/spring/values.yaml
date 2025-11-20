@@ -53,10 +53,15 @@ monitor:
   service:
     interval: 10s
 
-# Configmap
-config: |
-  server:
-    port: 8080
+# Configmap (환경변수)
+env:
+  EXAMPLE_ENV: empty_value
 
+# Secret (yaml 마운트)
 secret: |
   secret: i-am-secret
+
+# KafkaUser
+kafkaUser:
+  enabled: false
+  secretName: "" # 필요시 오버라이드
