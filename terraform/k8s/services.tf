@@ -65,7 +65,7 @@ locals {
             valueFiles = [
               "$service/k8s/helm-value.yaml",
               "$values/k8s-manifests/services/${app_name}.yaml",
-              "$secrets/k8s-secret-manifests/services/${app_name}.yaml"
+              "$secrets/services/${app_name}.yaml"
             ]
           }
         },
@@ -81,7 +81,7 @@ locals {
         },
         {
           repoURL        = "https://github.com/earseo/infra-secret-manifests.git"
-          targetRevision = "main"
+          targetRevision = "develop"
           ref            = "secrets"
         },
       ]
