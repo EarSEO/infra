@@ -1,0 +1,7 @@
+# 차트 정의 참조 https://artifacthub.io/packages/helm/strimzi/strimzi-kafka-operator
+revisionHistoryLimit: 2
+watchAnyNamespace: true
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi

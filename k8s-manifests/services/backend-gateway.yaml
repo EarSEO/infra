@@ -1,0 +1,6 @@
+name: backend-gateway
+image:
+  repository: ghcr.io/earseo/backend-gateway
+replicaCount: 1
+service:
+  type: NodePort

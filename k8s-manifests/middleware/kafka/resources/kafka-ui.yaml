@@ -1,0 +1,141 @@
+# 이미지 래퍼런스 https://hub.docker.com/r/provectuslabs/kafka-ui
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-ui
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-ui
+  template:
+    metadata:
+      labels:
+        app: kafka-ui
+    spec:
+      containers:
+        - name: kafka-ui
+          image: provectuslabs/kafka-ui:v0.7.2
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: DYNAMIC_CONFIG_ENABLED
+              value: "true"
+            - name: KAFKA_CLUSTERS_0_NAME
+              value: "kafka-earseo-cluster"
+
+            # Bootstrap 서버 (TLS 리스너 사용)
+            - name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS
+              value: "kafka-earseo-cluster-kafka-bootstrap.kafka.svc.cluster.local:9093"
+
+            # SASL 인증 설정
+            - name: KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL
+              value: "SASL_SSL"
+            - name: KAFKA_CLUSTERS_0_PROPERTIES_SASL_MECHANISM
+              value: "SCRAM-SHA-512"
+            - name: KAFKA_CLUSTERS_0_PROPERTIES_SASL_JAAS_CONFIG
+              valueFrom:
+                secretKeyRef:
+                  name: kafka-ui-user
+                  key: sasl.jaas.config
+
+            # SSL 호스트 검증 비활성화
+            - name: KAFKA_CLUSTERS_0_PROPERTIES_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM
+              value: ""
+
+            # 인증서
+            - name: KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_LOCATION
+              value: "/tmp/kafka/ca.p12"
+
+            - name: KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kafka-earseo-cluster-cluster-ca-cert
+                  key: ca.password
+
+            - name: KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_TYPE
+              value: "PKCS12"
+
+          volumeMounts:
+            - name: cluster-ca-cert
+              mountPath: /tmp/kafka
+              readOnly: true
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: 500m
+      volumes:
+        - name: cluster-ca-cert
+          secret:
+            secretName: kafka-earseo-cluster-cluster-ca-cert
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-ui
+  namespace: kafka
+spec:
+  type: ClusterIP
+  selector:
+    app: kafka-ui
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+---
+# Kafka UI용 KafkaUser
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: kafka-ui-user
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    strimzi.io/cluster: kafka-earseo-cluster
+spec:
+  authentication:
+    type: scram-sha-512
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: "*"
+          patternType: literal
+        operations:
+          - Read
+          - Describe
+          - DescribeConfigs
+
+      - resource:
+          type: group
+          name: "*"
+          patternType: literal
+        operations:
+          - Read
+          - Describe
+
+      - resource:
+          type: cluster
+        operations:
+          - Describe
+          - DescribeConfigs
+
+      - resource:
+          type: topic
+          name: "*"
+          patternType: literal
+        operations:
+          - Create
+          - Delete
+          - Alter
+          - AlterConfigs

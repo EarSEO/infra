@@ -1,3 +1,7 @@
 [submodule "kubespray/kubespray"]
 	path = kubespray/kubespray
 	url = https://github.com/kubernetes-sigs/kubespray.git
+
+[submodule "k8s-secret-manifests"]
+    path = k8s-secret-manifests
+    url = https://github.com/EarSEO/infra-secret-manifests.git

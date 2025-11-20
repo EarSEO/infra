@@ -1,0 +1,130 @@
+# 컨테이너 이미지 래퍼런스 https://hub.docker.com/r/postgis/postgis
+---
+# ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: postgres
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+data:
+  POSTGRES_DB: "earseo"
+  PGDATA: "/var/lib/postgresql/pgdata"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-sql
+  namespace: postgres
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+data:
+  01-init.sql: |
+    CREATE DATABASE core;
+    CREATE DATABASE member;
+    CREATE DATABASE route;
+    CREATE DATABASE sight;
+    CREATE DATABASE story;
+  02-enable-postgis.sql: |
+    \c core
+    CREATE EXTENSION IF NOT EXISTS postgis;
+    \c route
+    CREATE EXTENSION IF NOT EXISTS postgis;
+    \c sight
+    CREATE EXTENSION IF NOT EXISTS postgis;
+    \c story
+    CREATE EXTENSION IF NOT EXISTS postgis;
+
+---
+# Postgres 클라이언트 접근용 Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: postgres
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgres
+  type: ClusterIP
+
+---
+# Postgres StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: postgres
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgis/postgis:18-3.6
+          envFrom:
+            - configMapRef:
+                name: postgres-config
+            - secretRef:
+                name: postgres-secret
+          ports:
+            - containerPort: 5432
+              name: postgres
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql
+            - name: init-sql
+              mountPath: /docker-entrypoint-initdb.d
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U $POSTGRES_USER
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U $POSTGRES_USER
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+      volumes:
+        - name: init-sql
+          configMap:
+            name: postgres-init-sql
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: local-path
+        resources:
+          requests:
+            storage: 10Gi

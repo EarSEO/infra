@@ -1,0 +1,6 @@
+name: backend-core
+image:
+  repository: ghcr.io/earseo/backend-core
+replicaCount: 1
+service:
+  type: NodePort
