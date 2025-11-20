@@ -1,2 +1,6 @@
 ansible_user: vagrant
 ansible_become: true
+
+upstream_dns_servers:
+  - 8.8.8.8
+  - 8.8.4.4
