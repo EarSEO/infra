@@ -33,6 +33,10 @@ spec:
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: {{ .Values.profile }}
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
             {{- if .Values.kafkaUser.enabled }}
             - name: SPRING_KAFKA_PROPERTIES_SASL_JAAS_CONFIG
               valueFrom:

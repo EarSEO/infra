@@ -3,7 +3,7 @@ mode: daemonset
 image:
   repository: otel/opentelemetry-collector-contrib
   tag: 0.134.1
-
+hostNetwork: true
 clusterRole:
   create: true
   rules:
