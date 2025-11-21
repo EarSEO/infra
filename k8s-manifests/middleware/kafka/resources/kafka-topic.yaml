@@ -1,0 +1,53 @@
+# Kafka Topic 생성
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: member-level
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    strimzi.io/cluster: kafka-earseo-cluster
+spec:
+  # 파티션 설정
+  partitions: 1
+  # 레플리카 설정 (1 master, 2 slave)
+  replicas: 3
+  config:
+    # 메시지 보관 기간 (1 day)
+    retention.ms: 86400000
+    # 세그먼트 파일 크기 100MB
+    segment.bytes: 104857600
+    # 2개 이상의 레플리카에 저장되어야 저장 성공
+    min.insync.replicas: 2
+    # Zstandard 압축
+    compression.type: zstd
+    # 오래된 메시지 삭제 정책
+    cleanup.policy: delete
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: story-test
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    strimzi.io/cluster: kafka-earseo-cluster
+spec:
+  # 파티션 설정
+  partitions: 1
+  # 레플리카 설정 (1 master, 2 slave)
+  replicas: 3
+  config:
+    # 메시지 보관 기간 (1 day)
+    retention.ms: 86400000
+    # 세그먼트 파일 크기 100MB
+    segment.bytes: 104857600
+    # 2개 이상의 레플리카에 저장되어야 저장 성공
+    min.insync.replicas: 2
+    # Zstandard 압축
+    compression.type: zstd
+    # 오래된 메시지 삭제 정책
+    cleanup.policy: delete
+---

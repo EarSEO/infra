@@ -1,3 +1,6 @@
+tempo:
+  repository: grafana/tempo
+  tag: 2.3.0
 persistence:
   enabled: true
   storageClassName: local-path

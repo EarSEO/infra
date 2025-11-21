@@ -1,6 +1,7 @@
 deploymentMode: SingleBinary
 
 loki:
+  auth_enabled: false
   # https://grafana.com/docs/loki/latest/configure/examples/configuration-examples/ 참고
   commonConfig:
     ring:
@@ -22,7 +23,7 @@ loki:
           period: 24h
 
 singleBinary:
-  replicas: 0
+  replicas: 1
   resources:
     requests:
       memory: 128Mi

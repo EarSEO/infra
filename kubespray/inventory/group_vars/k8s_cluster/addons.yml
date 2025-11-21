@@ -5,7 +5,7 @@ helm_enabled: true
 metrics_server_enabled: true
 
 # Nginx ingress controller
-ingress_nginx_enabled: true
+ingress_nginx_enabled: false
 
 # Argocd
 argocd_enabled: true

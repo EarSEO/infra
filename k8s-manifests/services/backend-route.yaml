@@ -4,3 +4,22 @@ image:
 replicaCount: 1
 service:
   type: NodePort
+kafkaUser:
+  enabled: false
+monitor:
+  enabled: true
+env:
+  SERVER_PORT: "8080"
+  SPRING_PROFILES_ACTIVE: "dev"
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres-svc.postgres.svc.cluster.local:5432/route"
+  SPRING_DATASOURCE_DRIVER_CLASS_NAME: "org.postgresql.Driver"
+  SPRING_JPA_HIBERNATE_DDL_AUTO: "validate"
+  LOGGING_LEVEL_ORG_HIBERNATE_SQL: "debug"
+
+  SPRING_DATA_REDIS_SENTINEL_MASTER: "valkey-master"
+  SPRING_DATA_REDIS_SENTINEL_NODES: "valkey-sentinel.valkey.svc.cluster.local:26379"
+
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka-earseo-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+  SPRING_KAFKA_CONSUMER_GROUP_ID: "backend-route-consumer-group"
+  SPRING_KAFKA_PROPERTIES_SECURITY_PROTOCOL: "SASL_PLAINTEXT"
+  SPRING_KAFKA_PROPERTIES_SASL_MECHANISM: "SCRAM-SHA-512"

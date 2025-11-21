@@ -1,0 +1,88 @@
+# Kafka User 생성 (SASL_PLAINTEXT 인증)
+# KafkaUser의 이름은 ${서비스 레포지토리명}-kafka-user 패턴이어야함
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: backend-core-kafka-user
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    strimzi.io/cluster: kafka-earseo-cluster
+spec:
+  authentication:
+    type: scram-sha-512
+  authorization:
+    type: simple
+    acls:
+      # core 토픽 읽기 권한
+      - resource:
+          type: topic
+          name: "core-"
+          patternType: prefix
+        operations:
+          - Read
+          - Write
+          - Describe
+          - DescribeConfigs
+      # sight 토픽 쓰기권한
+      - resource:
+          type: topic
+          name: "sight-"
+          patternType: prefix
+        operations:
+          - Write
+          - Describe
+          - DescribeConfigs
+      # backend-core 컨슈머 그룹 읽기권한
+      - resource:
+          type: group
+          name: "backend-core-consumer-group"
+          patternType: literal
+        operations:
+          - Read
+          - Describe
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: backend-story-kafka-user
+  namespace: kafka
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    strimzi.io/cluster: kafka-earseo-cluster
+spec:
+  authentication:
+    type: scram-sha-512
+  authorization:
+    type: simple
+    acls:
+      # story 토픽 읽기 권한
+      - resource:
+          type: topic
+          name: "story-"
+          patternType: prefix
+        operations:
+          - Read
+          - Write
+          - Describe
+          - DescribeConfigs
+      # member 토픽 쓰기권한
+      - resource:
+          type: topic
+          name: "member-"
+          patternType: prefix
+        operations:
+          - Write
+          - Describe
+          - DescribeConfigs
+      # backend-story 컨슈머 그룹 읽기권한
+      - resource:
+          type: group
+          name: "backend-story-consumer-group"
+          patternType: literal
+        operations:
+          - Read
+          - Describe
+---

@@ -4,3 +4,5 @@ image:
 replicaCount: 1
 service:
   type: NodePort
+monitor:
+  enabled: true

@@ -3,7 +3,11 @@ mode: daemonset
 image:
   repository: otel/opentelemetry-collector-contrib
   tag: 0.134.1
-
+hostNetwork: true
+dnsPolicy: ClusterFirstWithHostNet
+presets:
+  logsCollection:
+    enabled: true
 clusterRole:
   create: true
   rules:
@@ -46,10 +50,16 @@ config:
     jaeger: null
     prometheus: null
     zipkin: null
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
   processors: # {}
-    batch: {}
-#      send_batch_size: 100
-#      timeout: 50ms
+    batch:
+      send_batch_size: 1024
+      timeout: 5s
 #      send_batch_max_size: 500
 
   exporters:
@@ -72,8 +82,6 @@ config:
         exporters:
           - otlp/tempo
       logs:
-        receivers:
-          - otlp
         processors:
           - batch
         exporters:
@@ -89,3 +97,6 @@ ports:
     enabled: false
   zipkin:
     enabled: false
+
+serviceMonitor:
+  enabled: true
