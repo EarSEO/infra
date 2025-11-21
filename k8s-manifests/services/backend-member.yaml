@@ -11,7 +11,8 @@ env:
   SPRING_PROFILES_ACTIVE: "dev"
   SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres-svc.postgres.svc.cluster.local:5432/member"
   SPRING_DATASOURCE_DRIVER_CLASS_NAME: "org.postgresql.Driver"
-  SPRING_JPA_SHOW_SQL: "true"
+  SPRING_JPA_HIBERNATE_DDL_AUTO: "validate"
+  LOGGING_LEVEL_ORG_HIBERNATE_SQL: "debug"
 
   SPRING_DATA_REDIS_SENTINEL_MASTER: "valkey-master"
   SPRING_DATA_REDIS_SENTINEL_NODES: "valkey-sentinel.valkey.svc.cluster.local:26379"
