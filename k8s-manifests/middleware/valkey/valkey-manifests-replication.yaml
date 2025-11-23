@@ -119,12 +119,13 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "0"
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
     app: valkey
   ports:
     - port: 6379
       targetPort: 6379
+      nodePort: 31102
       name: client
 
 ---
@@ -137,12 +138,13 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "0"
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
     app: valkey
   ports:
     - port: 26379
       targetPort: 26379
+      nodePort: 31103
       name: sentinel
 
 ---

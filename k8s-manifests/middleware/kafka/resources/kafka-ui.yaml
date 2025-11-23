@@ -83,12 +83,13 @@ metadata:
   name: kafka-ui
   namespace: kafka
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
     app: kafka-ui
   ports:
     - port: 8080
       targetPort: 8080
+      nodePort: 31104
       name: http
 ---
 # Kafka UI용 KafkaUser

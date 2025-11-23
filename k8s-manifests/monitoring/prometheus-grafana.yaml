@@ -1,7 +1,7 @@
 prometheus:
   service:
     enabled: true
-    nodePort: 30090
+    nodePort: 31105
     type: NodePort
   prometheusSpec:
     replicas: 1
@@ -36,7 +36,7 @@ grafana:
   defaultDashboardsTimezone: Asia/Seoul
   service:
     type: NodePort
-    nodePort: 30001
+    nodePort: 31100
 
   resources:
     requests:
