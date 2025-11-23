@@ -1,5 +1,5 @@
-[submodule "kubespray/kubespray"]
-	path = kubespray/kubespray
+[submodule "ansible/kubespray"]
+	path = ansible/kubespray
 	url = https://github.com/kubernetes-sigs/kubespray.git
 
 [submodule "k8s-secret-manifests"]
