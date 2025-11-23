@@ -1,0 +1,25 @@
+# Usage Guide Ref. https://community-charts.github.io/docs/charts/cloudflared/usage
+# Helm Value Ref. https://artifacthub.io/packages/helm/community-charts/cloudflared
+replica:
+  allNodes: true
+
+tunnelConfig:
+  name: "earseo_cluster_tunnel"
+  logLevel: "info"
+  protocol: "auto"
+  retries: 5
+  connectTimeout: "30s"
+  gracePeriod: "30s"
+
+resources:
+  limits:
+    cpu: "500m"
+    memory: "256Mi"
+  requests:
+    cpu: "200m"
+    memory: "128Mi"
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "2000"
+  prometheus.io/path: "/metrics"
+
