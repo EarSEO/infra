@@ -1,0 +1,8 @@
+\c core
+CREATE EXTENSION IF NOT EXISTS postgis;
+\c route
+CREATE EXTENSION IF NOT EXISTS postgis;
+\c sight
+CREATE EXTENSION IF NOT EXISTS postgis;
+\c story
+CREATE EXTENSION IF NOT EXISTS postgis;

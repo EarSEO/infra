@@ -1,0 +1,244 @@
+version: "3.8"
+
+services:
+  # Kafka KRaft Cluster
+  # 참고 이미지: https://hub.docker.com/r/confluentinc/cp-kafka/tags
+  kafka-1:
+    image: confluentinc/cp-kafka:7.6.0
+    hostname: kafka-1
+    container_name: kafka-1
+    ports:
+      - 19092:9092
+      - 19093:9093
+    environment:
+      CLUSTER_ID: XHGxkoajSSmW57QrWc8upw
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://$CLIENT_IP:19092
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@$CLIENT_IP:19093,2@$CLIENT_IP:29093,3@$CLIENT_IP:39093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_LOG_RETENTION_HOURS: 72
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    volumes:
+      - kafka-1-data:/var/lib/kafka/data
+      - ./kafka-1.properties:/etc/kafka/kafka.properties
+    command: >
+      bash -c "
+        if [ ! -f /var/lib/kafka/data/meta.properties ]; then
+          kafka-storage format --cluster-id=XHGxkoajSSmW57QrWc8upw --config /etc/kafka/kafka.properties --ignore-formatted
+        fi
+        /etc/confluent/docker/run
+      "
+    networks:
+      - kafka-net
+
+  kafka-2:
+    image: confluentinc/cp-kafka:7.6.0
+    hostname: kafka-2
+    container_name: kafka-2
+    ports:
+      - 29092:9092
+      - 29093:9093
+    environment:
+      CLUSTER_ID: XHGxkoajSSmW57QrWc8upw
+      KAFKA_NODE_ID: 2
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://$CLIENT_IP:29092
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@$CLIENT_IP:19093,2@$CLIENT_IP:29093,3@$CLIENT_IP:39093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_LOG_RETENTION_HOURS: 72
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    volumes:
+      - kafka-2-data:/var/lib/kafka/data
+      - ./kafka-2.properties:/etc/kafka/kafka.properties
+    command: >
+      bash -c "
+        if [ ! -f /var/lib/kafka/data/meta.properties ]; then
+          kafka-storage format --cluster-id=XHGxkoajSSmW57QrWc8upw --config /etc/kafka/kafka.properties --ignore-formatted
+        fi
+        /etc/confluent/docker/run
+      "
+    networks:
+      - kafka-net
+
+  kafka-3:
+    image: confluentinc/cp-kafka:7.6.0
+    hostname: kafka-3
+    container_name: kafka-3
+    ports:
+      - 39092:9092
+      - 39093:9093
+    environment:
+      CLUSTER_ID: XHGxkoajSSmW57QrWc8upw
+      KAFKA_NODE_ID: 3
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://$CLIENT_IP:39092
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@$CLIENT_IP:19093,2@$CLIENT_IP:29093,3@$CLIENT_IP:39093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_LOG_RETENTION_HOURS: 72
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    volumes:
+      - kafka-3-data:/var/lib/kafka/data
+      - ./kafka-3.properties:/etc/kafka/kafka.properties
+    command: >
+      bash -c "
+        if [ ! -f /var/lib/kafka/data/meta.properties ]; then
+          kafka-storage format --cluster-id=XHGxkoajSSmW57QrWc8upw --config /etc/kafka/kafka.properties --ignore-formatted
+        fi
+        /etc/confluent/docker/run
+      "
+    networks:
+      - kafka-net
+
+  # Kafka UI
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    container_name: kafka-ui
+    ports:
+      - 18080:8080
+    environment:
+      DYNAMIC_CONFIG_ENABLED: "true"
+      KAFKA_CLUSTERS_0_NAME: local-kafka
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+      KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL: PLAINTEXT
+    networks:
+      - kafka-net
+
+  # PostGIS
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: postgres
+    environment:
+      POSTGRES_DB: earseo
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: /var/lib/postgresql/pgdata
+    ports:
+      - 15432:5432
+    volumes:
+      - postgres-data:/var/lib/postgresql/pgdata
+      - ./init-sql:/docker-entrypoint-initdb.d
+    networks:
+      - backend
+
+  # Valkey Sentinel 구성
+  valkey-1:
+    image: valkey/valkey:7.2-alpine
+    hostname: valkey-1
+    command: ["valkey-server", "/valkey.conf"]
+    ports:
+      - 16379:6379
+    environment:
+      - VALKEY_PASSWORD=valkeypass
+    volumes:
+      - ./valkey-1.conf:/valkey.conf:ro
+      - valkey-1-data:/data
+    networks:
+      - backend
+
+  valkey-2:
+    image: valkey/valkey:7.2-alpine
+    hostname: valkey-2
+    command: ["valkey-server", "/valkey.conf"]
+    ports:
+      - 16380:6379
+    environment:
+      - VALKEY_PASSWORD=valkeypass
+    volumes:
+      - ./valkey-2.conf:/valkey.conf:ro
+      - valkey-2-data:/data
+    networks:
+      - backend
+
+  valkey-3:
+    image: valkey/valkey:7.2-alpine
+    hostname: valkey-3
+    command: ["valkey-server", "/valkey.conf"]
+    ports:
+      - 16381:6379
+    environment:
+      - VALKEY_PASSWORD=valkeypass
+    volumes:
+      - ./valkey-3.conf:/valkey.conf:ro
+      - valkey-3-data:/data
+    networks:
+      - backend
+
+  sentinel-1:
+    image: valkey/valkey:7.2-alpine
+    command: [ "sh", "-c", "sleep 5 && valkey-sentinel /sentinel.conf" ]
+    ports:
+      - 26379:26379
+    environment:
+      - VALKEY_PASSWORD=valkeypass
+    volumes:
+      - ./sentinel-1.conf:/sentinel.conf
+      - sentinel-1-data:/data
+    networks:
+      - backend
+
+  sentinel-2:
+    image: valkey/valkey:7.2-alpine
+    command: [ "sh", "-c", "sleep 5 && valkey-sentinel /sentinel.conf" ]
+    ports:
+      - 26380:26379
+    environment:
+      - VALKEY_PASSWORD=valkeypass
+    volumes:
+      - ./sentinel-2.conf:/sentinel.conf
+      - sentinel-2-data:/data
+    networks:
+      - backend
+
+  sentinel-3:
+    image: valkey/valkey:7.2-alpine
+    command: [ "sh", "-c", "sleep 5 && valkey-sentinel /sentinel.conf" ]
+    ports:
+      - 26381:26379
+    environment:
+      - VALKEY_PASSWORD=valkeypass
+    volumes:
+      - ./sentinel-3.conf:/sentinel.conf
+      - sentinel-3-data:/data
+    networks:
+      - backend
+
+volumes:
+  kafka-1-data:
+  kafka-2-data:
+  kafka-3-data:
+  postgres-data:
+  valkey-1-data:
+  valkey-2-data:
+  valkey-3-data:
+  sentinel-1-data:
+  sentinel-2-data:
+  sentinel-3-data:
+
+networks:
+  kafka-net:
+  backend:

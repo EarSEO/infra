@@ -1,0 +1,9 @@
+# Ansible Role Ref. https://github.com/artis3n/ansible-role-tailscale
+---
+- name: Install and configure Tailscale
+  hosts: all
+  become: true
+  roles:
+    - role: artis3n.tailscale
+      vars:
+        tailscale_authkey: "{{ tailscale_auth_key }}"
