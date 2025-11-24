@@ -4,6 +4,6 @@ image:
 replicaCount: 1
 service:
   type: NodePort
-  nodePort: 38080
+  nodePort: 31080
 monitor:
   enabled: true

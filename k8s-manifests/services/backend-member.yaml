@@ -4,7 +4,7 @@ image:
 replicaCount: 1
 service:
   type: NodePort
-  nodePort: 38082
+  nodePort: 31082
 kafkaUser:
   enabled: false
 monitor:

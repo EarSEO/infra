@@ -51,7 +51,7 @@ spec:
   ports:
     - port: 5432
       targetPort: 5432
-      nodePort: 38101
+      nodePort: 31101
       name: postgres
   type: NodePort
 

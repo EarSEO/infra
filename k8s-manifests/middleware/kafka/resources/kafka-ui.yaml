@@ -89,7 +89,7 @@ spec:
   ports:
     - port: 8080
       targetPort: 8080
-      nodePort: 38104
+      nodePort: 31104
       name: http
 ---
 # Kafka UI용 KafkaUser

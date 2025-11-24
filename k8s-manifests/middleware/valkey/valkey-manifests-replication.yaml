@@ -125,7 +125,7 @@ spec:
   ports:
     - port: 6379
       targetPort: 6379
-      nodePort: 38102
+      nodePort: 31102
       name: client
 
 ---
@@ -144,7 +144,7 @@ spec:
   ports:
     - port: 26379
       targetPort: 26379
-      nodePort: 38103
+      nodePort: 31103
       name: sentinel
 
 ---
